@@ -230,6 +230,7 @@
  * @requiredAssets img/pictures/c_back_2
  * @requiredAssets img/pictures/c_back_3
  * @requiredAssets img/pictures/c_back_i
+ * @requiredAssets img/pictures/c_back_ko
  * @requiredAssets img/pictures/c_cursor
  * @requiredAssets img/pictures/c_frame_0
  * @requiredAssets img/pictures/c_frame_1
