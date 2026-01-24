@@ -250,6 +250,13 @@
  * @requiredAssets img/pictures/c_rare_7
  * @requiredAssets img/pictures/card_0
  * @requiredAssets img/pictures/knockout
+ * @requiredAssets audio/se/Bell1
+ * @requiredAssets audio/se/Move1
+ * @requiredAssets audio/se/Evasion1
+ * @requiredAssets audio/se/Crow
+ * @requiredAssets audio/se/Damage2
+ * @requiredAssets audio/se/Heal3
+ * @requiredAssets audio/se/Buzzer1
  * @noteParam cardImage
  * @noteRequire 1
  * @noteDir img/pictures/
@@ -1278,7 +1285,7 @@ TMPlugin.Card.Layouts = {
 			break;
 		case 6:	 // 相手の攻撃をスルー
 			this._phase = 2;
-			//AudioManager.playSe({"name":"Evasion1","volume":90,"pitch":100,"pan":0})
+			AudioManager.playSe({"name":"Evasion1","volume":90,"pitch":100,"pan":0})
 			message = '相手の攻撃を無視';
 			break;
 		case 7:	 // 自分のHP＋○○
@@ -1470,7 +1477,7 @@ TMPlugin.Card.Layouts = {
 			target.gainHp(-target.atk);
 			animTargetInvert = true; //Row追記：アニメ表示位置を反転
 			this._phase = 2;
-			//AudioManager.playSe({"name":"Evasion1","volume":90,"pitch":100,"pan":0})
+			AudioManager.playSe({"name":"Evasion1","volume":90,"pitch":100,"pan":0})
 			message = targetCardName + ' にカウンター ' + target.atk + ' ダメージ';
 			break;
 		case 36:	 // 自分の攻撃力にHPのx倍を追加（切り上げ）
