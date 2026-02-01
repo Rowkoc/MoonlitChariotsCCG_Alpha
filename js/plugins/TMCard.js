@@ -224,6 +224,15 @@
  * @require 1
  * @dir img/pictures/
  * @type file
+ * @param bpCostRate
+ * @desc 倒した相手のコストにかける係数。
+ * 初期値: 1.0
+ * @default 1.0
+ *
+ * @param bpFixedBonus
+ * @desc 相手を倒した時に加算される固定のボーナス。
+ * 初期値: 0
+ * @default 0
  *
  * @requiredAssets img/pictures/c_back_0
  * @requiredAssets img/pictures/c_back_1
@@ -250,7 +259,8 @@
  * @requiredAssets img/pictures/c_rare_6
  * @requiredAssets img/pictures/c_rare_7
  * @requiredAssets img/pictures/card_0
- * @requiredAssets img/pictures/knockout
+ * @requiredAssets img/pictures/defeat_3
+ * @requiredAssets img/pictures/foil_layer
  * @requiredAssets audio/se/Bell1
  * @requiredAssets audio/se/Move1
  * @requiredAssets audio/se/Evasion1
@@ -426,8 +436,7 @@ TMPlugin.Card.MessageWindowY = +(TMPlugin.Card.Parameters['messageWindowY'] || 5
 //--------戦況値(BP)関連追加-------
 // --- ここから追加 (Config for Battle Status) ---
 TMPlugin.Card.BP_Config = {
-    initial: 5,       // 戦況値の初期値
-    maxDisplay: 50,    // ゲージが最大になる数値（これを超えても数値は増えるがゲージは満タン）
+    initial: 3,       // 戦況値の初期値
     
     // UI配置設定
     gaugeY: 60,        // ゲージのY座標
@@ -443,6 +452,9 @@ TMPlugin.Card.BP_Config = {
     colorEnemy:  '#ff4444', // 敵ゲージ色
     colorBack:   '#000000'  // 背景色
 };
+
+TMPlugin.Card.BpCostRate = +(TMPlugin.Card.Parameters['bpCostRate'] || 1.0);
+TMPlugin.Card.BpFixedBonus = +(TMPlugin.Card.Parameters['bpFixedBonus'] || 0);
 // --- ここまで追加 ---
 
 // --- オートモード、勝敗演出追加機能用パラメータ ---
@@ -505,22 +517,22 @@ TMPlugin.Card.Layouts = {
         drawFrame: true,         // 枠を描画するか
         
         // 各要素の座標と表示設定 {x, y, width, height, align, visible}
-        typeIcon:  { x: 8,  y: 10,  w: 24, h: 24, visible: true },
-        name:      { x: 36, y: 10,  w: 152, h: 24, visible: true },
+        typeIcon:  { x: 12, y: 10,  w: 24, h: 24, visible: true },
+        name:      { x: 40, y: 11,  w: 152, h: 24, visible: true },
         faction:   { x: 34, y: 31,  w: 152, h: 24, visible: true },
         
-        hp:        { x: 22, y: 185, w: 48,  h: 32, visible: true },
-        atk:       { x: 83, y: 185, w: 48,  h: 32, visible: true },
-        spd:       { x: 148,y: 185, w: 48,  h: 32, visible: true },
+        hp:        { x: 25, y: 188, w: 48,  h: 32, visible: true },
+        atk:       { x: 85, y: 188, w: 48,  h: 32, visible: true },
+        spd:       { x: 150,y: 188, w: 48,  h: 32, visible: true },
         
         // 属性アイコンは個別に位置調整が必要ならここに追加しますが、元コードでは固定ロジックでした
         // 今回はとりあえず元のロジックに近い形で実装します
         
         unitSkillIcon: { x: 8,  y: 226, w: 24, h: 24, visible: true },
-        unitSkillText: { x: 32, y: 226, w: 152, h: 24, visible: true },
+        unitSkillText: { x: 36, y: 226, w: 152, h: 24, visible: true },
         
         partySkillIcon:{ x: 8,  y: 254, w: 24, h: 24, visible: true },
-        partySkillText:{ x: 32, y: 254, w: 152, h: 24, visible: true }
+        partySkillText:{ x: 36, y: 254, w: 152, h: 24, visible: true }
     },
 
     // ■ プロモカード (枠を変える、レイアウトは通常と同じか少し変える)
@@ -749,6 +761,7 @@ TMPlugin.Card.Layouts = {
 	Game_CardBattle.prototype.initialize = function() {
 		this._maxAtk = TMPlugin.Card.MaxAtk;
 		this._battleFinished = false; //勝敗演出用フラグ
+		this._resultEffectRequested = false; // ★追加: 即時演出開始用フラグ
 	};
 
 	Object.defineProperties(Game_CardBattle.prototype, {
@@ -760,6 +773,7 @@ TMPlugin.Card.Layouts = {
 		this._maxAtk = TMPlugin.Card.MaxAtk;
 		// ■追加: バトル終了フラグをリセットする
 		this._battleFinished = false;
+		this._resultEffectRequested = false;
 		var playerName = $gameParty.battleMembers().length === 0 ? 'プレイヤー' : $gameParty.leader().name();
 		var playerItemCard = $gameParty.itemCard();
 		this._playerDeck = new Game_Deck(playerName, playerItemCard ? playerItemCard.id : 0, $gameParty.activeDeck().concat());
@@ -966,8 +980,9 @@ TMPlugin.Card.Layouts = {
 		
 		// ★変更: 撃破時に相手のコスト分、戦況値(BP)を加算する
 		if (attacker.hp === 0){
-            var bonus = attacker.card().cost(); // コスト取得
-            target.gainBp(bonus);               // 相手に加算
+			// ボーナス計算：相手コスト × 係数 + 固定値
+            var bonus = Math.floor(attacker.card().cost() * TMPlugin.Card.BpCostRate) + TMPlugin.Card.BpFixedBonus;
+        	target.gainBp(bonus);         // 相手に加算
             
             
 			attacker.knockout();
@@ -980,9 +995,9 @@ TMPlugin.Card.Layouts = {
 			this._cardDeath =true;
 		}
 		if (target.hp === 0){
-            var bonus = target.card().cost();   // コスト取得
-            attacker.gainBp(bonus);             // 相手に加算
-            
+            // ボーナス計算：相手コスト × 係数 + 固定値
+        	var bonus = Math.floor(target.card().cost() * TMPlugin.Card.BpCostRate) + TMPlugin.Card.BpFixedBonus;
+        	attacker.gainBp(bonus);
 
 			target.knockout();
 			// ★追加: 控えカードがいる場合、新カードのHPを描画用に即時セットする
@@ -1142,6 +1157,7 @@ TMPlugin.Card.Layouts = {
 			this._cardDeath = false; //カード死亡判定を初期化
 			this._playerActive=false;
 			this._enemyActive =false;
+			
 			this.addMessage(0, '勝負あり!!');
 			this.addMessage(4, 120);
 			if (this._playerDeck.lose === this._playerDeck.size() &&
@@ -1209,6 +1225,8 @@ TMPlugin.Card.Layouts = {
 					BattleManager.playVictoryMe();
 				}
 				BattleManager.replayBgmAndBgs();
+				// ★追加: BGMが鳴るタイミングで、画像演出の開始フラグを立てる
+            	this._resultEffectRequested = true;
 				break;
 			case 4:
 				this._waitCount = message.value;
@@ -1563,6 +1581,54 @@ TMPlugin.Card.Layouts = {
 			}
 			animTargetInvert = true; //Row追記：アニメ表示位置を反転
 			break;
+		case 44: // 自分の「次」のカードの スピード + ○○
+            var nextIndex = user.lose + 1;
+            if (nextIndex < user.size()) {
+                user.card(nextIndex).addBonus(0, 0, param);
+                message = '次カードの Speed' + (param < 0 ? ' - ' : ' + ') + Math.abs(param);
+            }
+        break;
+        case 45: // 自分の控え全員の スピード + ○○
+            for (var i = user.lose + 1; i < user.size(); i++) {
+                user.card(i).addBonus(0, 0, param);
+                console.log("this._bonusSpd:"+user.card(i)._bonusSpd)
+            }
+            message = '控えカードの Speed' + (param < 0 ? ' - ' : ' + ') + Math.abs(param);
+        break;
+        case 46: // 自分の全ての スピード + ○○ (※場に出ているカードのSPD変動は次ターンまたは次回登場時に影響)
+            // ActiveなカードのSpeed変数はDeck側で管理していない(initCardStatus時のみ)ため
+            // 即時反映させるにはDeckにSPD管理を追加する必要がありますが、
+            // ここではCard本体にボーナスを乗せることで、次回登場時や再計算時に反映させます。
+            user.card().addBonus(0, 0, param); // 現在のカードの基礎値も変更
+            for (var i = user.lose + 1; i < user.size(); i++) {
+                user.card(i).addBonus(0, 0, param);
+            }
+            
+            message = '味方全体の Speed' + (param < 0 ? ' - ' : ' + ') + Math.abs(param);
+        break;
+        case 47: // 相手の「次」のカードの spd + ○○
+            var nextIndex = target.lose + 1;
+            if (nextIndex < target.size()) {
+                target.card(nextIndex).addBonus(0, 0, param);
+                message = '相手の次カードの ' + SPD + (param < 0 ? ' - ' : ' + ') + Math.abs(param);
+            } else {
+                message = '相手の次カードがありません';
+            }
+        break;
+        case 48: // 相手の控え全員の スピード + ○○
+            for (var i = target.lose + 1; i < target.size(); i++) {
+                target.card(i).addBonus(0, 0, param);
+            }
+            message = targetCardName + ' の控え Speed' + (param < 0 ? ' - ' : ' + ') + Math.abs(param);
+        break;
+        case 49: // 相手の全ての スピード + ○○
+            target.card().addBonus(0, 0, param);
+            animTargetInvert = true;
+            for (var i = target.lose + 1; i < target.size(); i++) {
+                target.card(i).addBonus(0, 0, param);
+            }
+            message = '相手全体の Speed' + (param < 0 ? ' - ' : ' + ') + Math.abs(param);
+        break;
 		case 50:	// 自分の戦況値＋○○
 			user.gainBp(param);
 			message = '戦況値 ' + (param < 0 ? '- ' : '+ ') + Math.abs(param);
@@ -1571,6 +1637,17 @@ TMPlugin.Card.Layouts = {
 			target.gainBp(-param);
 			message = targetCardName + 'の戦況値 - ' + Math.abs(param);
 			break;
+		case 52: // BP差 × param のダメージを与える
+            // 差の絶対値を計算
+            var bpDiff = Math.abs(user.bp - target.bp);
+            // param倍する (paramが 2なら 差x2ダメージ)
+            var dmg = Math.floor(bpDiff * param);
+            
+            target.gainHp(-dmg);
+            target.setPow(dmg);
+            animTargetInvert = true;
+            message = 'BP差(' + bpDiff + ')×' + param + ' の威力! ' + dmg + ' ダメージ';
+            break;
 		
 		//========ここより上に追記していく==========-
 		}
@@ -1762,6 +1839,8 @@ TMPlugin.Card.Layouts = {
 					if (target.bp - user.bp < param) return false;
 				case 45:	// BPが相手より○○小さい
 					if (target.bp - user.bp > param) return false;
+				case 46:	//SPDが相手より○○以上
+					if (target.spd - user.spd < param) return false;
 				} //Switch 閉じ
 			} //for閉じ
 		} //rules 閉じ
@@ -1949,20 +2028,25 @@ TMPlugin.Card.Layouts = {
 
 	Game_Deck.prototype.gainHp = function(value) {
 		this._hp = Math.max(this._hp + value, 0);
-		//変動量に合わせてSE再生
-		if (value < 0){
+		//変動量に合わせてSE再生(ゲーム速度が速い場合のみ）
+		// ■追加: 現在の速度を取得
+		var speed = Math.max($gameVariables.value(TMPlugin.Card.VNBattleSpeed), 1);
+		// ■追加: スキップする閾値 (変数の値を参照)
+		if (speed > 3){
+			if (value < 0){
 				AudioManager.playSe({"name":"Damage2","volume":90,"pitch":100,"pan":0}) //ダメージSE
 			}else{
 				if (value > 0){
 					AudioManager.playSe({"name":"Heal3","volume":90,"pitch":100,"pan":0}) //回復SE
 				}
+			}
 		}
-		//HP変化時にスプライトを表示するようにした（Row追記)
-		const spriteset = SceneManager._scene._spriteset;
-    	if (spriteset && typeof spriteset.startDamageDisplay === "function") {
-        	spriteset.startDamageDisplay($gameCardBattle._turn, value);
-        	console.log("gainHP side="+$gameCardBattle._turn+", damage="+ value);
-    	}
+		//HP変化時にスプライトを表示するようにする（Row追記)
+		//const spriteset = SceneManager._scene._spriteset;
+    	//if (spriteset && typeof spriteset.startDamageDisplay === "function") {
+        //	spriteset.startDamageDisplay($gameCardBattle._turn, value);
+        //	console.log("gainHP side="+$gameCardBattle._turn+", damage="+ value);
+    	//}
 	};
 
 	Game_Deck.prototype.gainAtk = function(value) {
@@ -2307,8 +2391,40 @@ TMPlugin.Card.Layouts = {
 	};
 	
 	Game_Card.prototype.knockoutName = function() {
-		return this._item.meta.knockoutImage || 'knockout';
+		return this._item.meta.knockoutImage || 'defeat_3';
 	};
+
+	//カードのボーナス値の追加
+	// ■ 初期化処理にボーナス値用の変数を追加
+	var _Game_Card_initMembers = Game_Card.prototype.initMembers;
+	Game_Card.prototype.initMembers = function() {
+    	_Game_Card_initMembers.call(this);
+    	this._bonusHp = 0;
+    	this._bonusAtk = 0;
+    	this._bonusSpd = 0;
+    	this._needsRedraw = false; // ★追加: 再描画要求フラグ
+	};
+
+	// ■ ボーナス値を加算する関数（新規追加）
+	Game_Card.prototype.addBonus = function(hp, atk, spd) {
+		
+		if (hp !== 0 || atk !== 0 || spd !== 0) {
+			console.log('ボーナス通過')
+    		this._bonusHp += hp;
+    		this._bonusAtk += atk;
+    		this._bonusSpd += spd;
+    		this._needsRedraw = true; // ★追加: 再描画を要求する
+    	}
+	};
+	// ★追加: スプライト側から呼び出して、フラグの状態を取得・リセットする関数
+    Game_Card.prototype.checkRedrawRequest = function() {
+        if (this._needsRedraw) {
+            this._needsRedraw = false; // フラグを回収
+            return true;
+        }
+        return false;
+    };
+
 
 	Game_Card.prototype.id = function() {
 		return this._cardId;
@@ -2323,16 +2439,27 @@ TMPlugin.Card.Layouts = {
 	};
 
 	Game_Card.prototype.hp = function() {
-		return this._item ? +this._item.meta.cardHp : 0;
+		//return this._item ? +this._item.meta.cardHp : 0;
+		//ボーナス値を反映
+		var val = this._item ? +this._item.meta.cardHp : 0;
+    	return Math.max(0, val + this._bonusHp);
 	};
 
 	Game_Card.prototype.atk = function() {
-		return this._item ? +this._item.meta.cardAtk : 0;
+		//return this._item ? +this._item.meta.cardAtk : 0;
+		//ボーナス値を反映
+		var val = this._item ? +this._item.meta.cardAtk : 0;
+    	// 補正後の値も 0 ～ MaxAtk の範囲に収めるかは仕様によりますが、
+    	// ここでは下限0のみ制限し、上限処理はDeck側(initCardStatus)に任せます
+    	return Math.max(0, val + this._bonusAtk);
 	};
 	
 	//Row追加：カード速度
 	Game_Card.prototype.spd = function() {
-		return this._item ? +this._item.meta.cardSpd : 0;
+		//return this._item ? +this._item.meta.cardSpd : 0;
+		//ボーナス値を反映
+		var val = this._item ? +this._item.meta.cardSpd : 0;
+    	return val + this._bonusSpd;
 	};
 	
 	//Row追加：基礎パワー(基本的には攻撃力）
@@ -2559,6 +2686,7 @@ TMPlugin.Card.Layouts = {
             } else {
                 this._cardBitmap = ImageManager.loadPicture(this._card.fileName());
                 this._knockoutBitmap = ImageManager.loadPicture(this._card.knockoutName());
+                this._backBitmap = ImageManager.loadPicture('c_back_ko');
 
                 if (TMPlugin.Card.UseAutoText) {
                     var layout = this._card.layout(); // レイアウト情報を取得
@@ -2603,7 +2731,7 @@ TMPlugin.Card.Layouts = {
 			this.bitmap.blt(this._cardBitmap, 0, 0, 192, 288, 0, 0); //cardBitmap に入っている物を直接描画。
 			this.bitmap.blt(this._frameBitmap, 0, 0, 192, 288, 0, 0);
 			//this.bitmap.blt(this._knockoutBitmap, 0, 0, 192, 288, 0, 0); //やられ画像を描画するblt
-			console.log('やられ画像'); //ここも反応
+			//console.log('やられ画像'); //ここも反応
 			//フォント設定(カード名)
 			this.bitmap.fontSize = 18;
 			this.bitmap.textColor = '#ffffff';
@@ -2672,7 +2800,7 @@ TMPlugin.Card.Layouts = {
             }
 
             // パラメータ数値描画
-            this.bitmap.fontSize = 28;
+            this.bitmap.fontSize = 20;
             
             // HP
             if (layout.hp && layout.hp.visible) {
@@ -2686,9 +2814,18 @@ TMPlugin.Card.Layouts = {
                 }
                 // 速度
                 if (layout.spd && layout.spd.visible) {
+                	
+                	var spdColor = '#ffffff';
+                	if (this._card._bonusSpd!=0) {
+                		console.log('スピード補正:'+this._card._bonusSpd); //処理通過チェック。
+        				if (this._card._bonusSpd > 0) spdColor = '#80ff80';
+        				else if (this._card._bonusSpd < 0) spdColor = '#ff8080';
+    				}
+    				this.bitmap.textColor = spdColor;
                     this.bitmap.drawText(this._card.spd(), layout.spd.x, layout.spd.y, layout.spd.w, layout.spd.h, 'center');
                 }
             }
+            this.bitmap.textColor = spdColor;
             // ★ここに追加：Foilスプライトの設定
         	if (this._card.isFoil()) {
             	// img/pictures/foil_layer.png を読み込む
@@ -2732,6 +2869,13 @@ TMPlugin.Card.Layouts = {
 		if (this._bitmapLoading && ImageManager.isReady()) { //最初の1回だけカード作成をしている。
 			this.createCardBitmap();
 		}
+		
+		// ★追加: データ側から再描画リクエストが来ているかチェック
+        if (this._card && this._card.checkRedrawRequest()) {
+            console.log(this._card.name() + ' のステータス変動検知: 再描画を実行');
+            this.createCardBitmap();
+        }
+        
 		this.x = this._card.screenX();
 		this.y = this._card.screenY();
 		this.scale.x = this._card.scaleX();
@@ -2818,6 +2962,11 @@ TMPlugin.Card.Layouts = {
 	Sprite_Card.prototype.isGray = function() {
 		return this._colorToneGray === 255;
 	};
+	
+	
+	
+	
+	
 
 	//-----------------------------------------------------------------------------
 	// Sprite_Number
@@ -4053,8 +4202,12 @@ Spriteset_CardBattle.prototype.autotileType = function(z) {
 				// ■追加: オート待機時間の初期設定 (基本60フレーム / 速度)
 				// メッセージの長さや重要度に応じて変えても良いですが、一旦固定値で設定
 				// 速度3(爆速)の場合は、ほぼウェイトなしにする
-				var baseWait = 90; 
-				if (speed >= 3) baseWait = 10;
+				var baseWait = 60; 
+				if (speed >= 5) {
+				    baseWait = 10;  // 「爆速」時の待ち時間（ほぼゼロ）
+				} else if (speed >= 2) {
+				    baseWait = 45; // ★「高速」時の待ち時間（初期値 45フレーム = 0.75秒）
+				}
 				this._autoWaitCount = baseWait;
 			}
 		}
@@ -4396,75 +4549,214 @@ Spriteset_CardBattle.prototype.autotileType = function(z) {
 		var active = this.isActive();
 		
 		// バトルロジック更新
-		$gameCardBattle.update(active);
+		// ※演出中も裏でメッセージを送るために更新し続ける必要があります
+    	$gameCardBattle.update(active);
+    	
+    	// ■変更: 勝敗が決まったら(フラグが立ったら)、テキスト表示中でも即座に演出を開始する
+    	if ($gameCardBattle._resultEffectRequested) {
 
-		// ■追加: バトル終了演出処理
-		if ($gameCardBattle._battleFinished) {
-			
-			// まだリザルト表示を開始していない場合
-			if (!this._resultPhase) {
-				this._resultPhase = 'start';
-				this._resultWait = 0;
-				
-				// 結果変数の取得 (0:引分, 1:負け, 2:勝ち) ※TMCard仕様
-				var result = $gameVariables.value(TMPlugin.Card.VNResult);
-				var imageName = '';
-				
-				if (result === 2) {
-					imageName = TMPlugin.Card.ResultImageWin;
-					this._resultTotalWait = 60 * 5; // 勝利時のウェイト(60フレーム×秒
-				} else if (result === 1) {
-					imageName = TMPlugin.Card.ResultImageLose;
-					this._resultTotalWait = 60 * 3; // 敗北時のウェイト
-				} else {
-					imageName = TMPlugin.Card.ResultImageDraw;
-					this._resultTotalWait = 60 * 3;
-				}
-				
-				if (imageName) {
-					this._resultSprite.bitmap = ImageManager.loadPicture(imageName);
-					this._resultSprite.opacity = 0;
-					this._resultSprite.scale.x = 2.0; // 拡大してから縮小する演出用
-					this._resultSprite.scale.y = 2.0;
-				}
-			}
+        // まだリザルト表示を開始していない場合、初期化を行う
+        	if (!this._resultPhase) {
+            	this._resultPhase = 'start';
+            	this._resultWait = 0;
 
-			// フェーズごとの処理
-			if (this._resultPhase === 'start') {
-				// 画像をフェードイン＆縮小表示
-				this._resultSprite.opacity += 20;
-				if (this._resultSprite.scale.x > 1.0) {
-					this._resultSprite.scale.x -= 0.05;
-					this._resultSprite.scale.y -= 0.05;
-				}
-				if (this._resultSprite.opacity >= 255 && this._resultSprite.scale.x <= 1.0) {
-					this._resultPhase = 'wait';
-				}
-				
-			} else if (this._resultPhase === 'wait') {
-				// ウェイト中 (連打スキップ防止)
-				this._resultWait++;
-				
-				// オートモードの場合はウェイトも倍速の影響を受けるようにするなら以下を有効化
-				// var speed = Math.max($gameVariables.value(TMPlugin.Card.VNBattleSpeed), 1);
-				// this._resultWait += speed - 1;
+            	// 結果変数の取得 (0:引分, 1:負け, 2:勝ち)
+            	var result = $gameVariables.value(TMPlugin.Card.VNResult);
+            	var imageName = '';
 
-				if (this._resultWait >= this._resultTotalWait) {
-					this._resultPhase = 'input';
-				}
-				
-			} else if (this._resultPhase === 'input') {
-				// クリック待機
-				// 画面下に「Click to Next」などを点滅させても良いかもしれません
-				
-				// オートモードならクリックなしで進む
-				var isAuto = $gameSwitches.value(TMPlugin.Card.SWAutoMode);
-				
-				if (isAuto || Input.isTriggered('ok') || TouchInput.isTriggered()) {
-					AudioManager.stopMe();
-					SceneManager.pop();
-				}
-			}
-		}
+            	// 変数の中身がまだ確定していない場合(判定直後)の安全策として、
+            	// 時間切れ以外のjudgeWinLoss経由ならこの時点で変数はセットされていますが、
+            	// タイミングによっては別途取得ロジックが必要かもしれません。
+            	// 現状のコードフローなら judgeWinLoss 内で setValue されているため問題ありません。
+
+            	if (result === 2) {
+                	imageName = TMPlugin.Card.ResultImageWin;
+                	this._resultTotalWait = 60 * 5; 
+            	} else if (result === 1) {
+                	imageName = TMPlugin.Card.ResultImageLose;
+                	this._resultTotalWait = 60 * 3;
+            	} else {
+                	imageName = TMPlugin.Card.ResultImageDraw;
+                	this._resultTotalWait = 60 * 3;
+            	}
+
+            	if (imageName) {
+                	this._resultSprite.bitmap = ImageManager.loadPicture(imageName);
+                	this._resultSprite.opacity = 0;
+                	this._resultSprite.scale.x = 1.0; 
+                	this._resultSprite.scale.y = 0.0;
+            	}
+        	}
+
+        	// フェーズごとの処理 (テキスト送り中もこの処理は毎フレーム走ります)
+        	if (this._resultPhase === 'start') {
+            	// 画像をフェードイン＆縮小表示
+            	this._resultSprite.opacity += 20;
+            	if (this._resultSprite.scale.y < 1.0) {
+                	//this._resultSprite.scale.x -= 0.05;
+                	this._resultSprite.scale.y += 0.025;
+            	}
+            	if (this._resultSprite.opacity >= 255 && this._resultSprite.scale.y >= 1.0) {
+                	this._resultPhase = 'wait';
+            	}
+
+        	} else if (this._resultPhase === 'wait') {
+            	// ウェイト中
+            	this._resultWait++;
+            	if (this._resultWait >= this._resultTotalWait) {
+                	this._resultPhase = 'input';
+            	}
+
+        	} else if (this._resultPhase === 'input') {
+            	// 入力待ち状態
+            	// ★重要: ここで初めて「バトルのメッセージが全て完了しているか(_battleFinished)」をチェックします。
+            	// 画像演出が終わっていても、テキスト(「勝負あり！」など)が残っている場合は閉じないようにします。
+            
+            	if ($gameCardBattle._battleFinished) {
+                	var isAuto = $gameSwitches.value(TMPlugin.Card.SWAutoMode);
+                
+                	// オートモード、または決定キー入力で終了
+                	if (isAuto || Input.isTriggered('ok') || TouchInput.isTriggered()) {
+                    	AudioManager.stopMe();
+                    	SceneManager.pop();
+                	}
+            	}
+        	}
+    	}
+
+		
 	};
+})();
+//=============================================================================
+// TMCard.js 機能拡張：オプション連動＆オート時のみアニメスキップ (完全版)
+//=============================================================================
+
+(function() {
+    //-----------------------------------------------------------------------------
+    // 1. ConfigManager (設定の保存と読み込み)
+    //-----------------------------------------------------------------------------
+    ConfigManager.tmCardAuto  = false;
+    ConfigManager.tmCardSpeed = 1;
+
+    var _ConfigManager_makeData = ConfigManager.makeData;
+    ConfigManager.makeData = function() {
+        var config = _ConfigManager_makeData.call(this);
+        config.tmCardAuto = this.tmCardAuto;
+        config.tmCardSpeed = this.tmCardSpeed;
+        return config;
+    };
+
+    var _ConfigManager_applyData = ConfigManager.applyData;
+    ConfigManager.applyData = function(config) {
+        _ConfigManager_applyData.call(this, config);
+        this.tmCardAuto = this.readFlag(config, 'tmCardAuto');
+        this.tmCardSpeed = config['tmCardSpeed'] !== undefined ? Number(config['tmCardSpeed']) : 1;
+    };
+
+    //-----------------------------------------------------------------------------
+    // 2. スイッチ・変数への強制反映 (プラグインの既存処理との同期)
+    //-----------------------------------------------------------------------------
+    var _Game_Switches_value = Game_Switches.prototype.value;
+    Game_Switches.prototype.value = function(switchId) {
+        if (switchId === TMPlugin.Card.SWAutoMode) return ConfigManager.tmCardAuto;
+        return _Game_Switches_value.call(this, switchId);
+    };
+
+    var _Game_Variables_value = Game_Variables.prototype.value;
+    Game_Variables.prototype.value = function(variableId) {
+        if (variableId === TMPlugin.Card.VNBattleSpeed) return ConfigManager.tmCardSpeed;
+        return _Game_Variables_value.call(this, variableId);
+    };
+
+    //-----------------------------------------------------------------------------
+    // 3. Window_Options (オプション画面の挙動修正)
+    //-----------------------------------------------------------------------------
+    
+    // 項目追加
+    var _Window_Options_addGeneralOptions = Window_Options.prototype.addGeneralOptions;
+    Window_Options.prototype.addGeneralOptions = function() {
+        _Window_Options_addGeneralOptions.call(this);
+        this.addCommand('カードバトル自動', 'tmCardAuto');
+        this.addCommand('カードバトル速度', 'tmCardSpeed');
+    };
+
+    // 表示テキストの修正
+    var _Window_Options_statusText = Window_Options.prototype.statusText;
+    Window_Options.prototype.statusText = function(index) {
+        var symbol = this.commandSymbol(index);
+        var value = this.getConfigValue(symbol);
+        if (symbol === 'tmCardSpeed') {
+            if (value < 2) return '通常';
+            if (value <= 3) return '高速';
+            return '爆速';
+        }
+        return _Window_Options_statusText.call(this, index);
+    };
+
+    // 決定キー (Enter / Z) を押した時の挙動
+    var _Window_Options_processOk = Window_Options.prototype.processOk;
+    Window_Options.prototype.processOk = function() {
+        var index = this.index();
+        var symbol = this.commandSymbol(index);
+        if (symbol === 'tmCardSpeed') {
+            var value = this.getConfigValue(symbol);
+            if (value < 2) value = 3;
+            else if (value <= 3) value = 5;
+            else value = 1.5;
+            this.changeValue(symbol, value);
+        } else {
+            // ここで元々の「ON/OFF切り替え処理」を呼び出す
+            _Window_Options_processOk.call(this);
+        }
+    };
+
+    // 右キーを押した時の挙動
+    var _Window_Options_cursorRight = Window_Options.prototype.cursorRight;
+    Window_Options.prototype.cursorRight = function(wrap) {
+        var symbol = this.commandSymbol(this.index());
+        if (symbol === 'tmCardSpeed') {
+            this.processOk(); // 速度の場合は決定キーと同じループ処理
+        } else {
+            _Window_Options_cursorRight.call(this, wrap);
+        }
+    };
+
+    // 左キーを押した時の挙動
+    var _Window_Options_cursorLeft = Window_Options.prototype.cursorLeft;
+    Window_Options.prototype.cursorLeft = function(wrap) {
+        var symbol = this.commandSymbol(this.index());
+        if (symbol === 'tmCardSpeed') {
+            var value = this.getConfigValue(symbol);
+            if (value === 5) value = 3;
+            else if (value >= 2) value = 1.5;
+            else value = 5;
+            this.changeValue(symbol, value);
+        } else {
+            _Window_Options_cursorLeft.call(this, wrap);
+        }
+    };
+
+    //-----------------------------------------------------------------------------
+    // 4. アニメーションスキップ条件の変更
+    //-----------------------------------------------------------------------------
+    Sprite_Card.prototype.setupAnimation = function() {
+        var speed = $gameVariables.value(TMPlugin.Card.VNBattleSpeed);
+        var isAuto = $gameSwitches.value(TMPlugin.Card.SWAutoMode);
+
+        while (this._card.isAnimationRequested()) {
+            var data = this._card.shiftAnimation();
+            
+            // ★変更点：オートモードかつ速度が5(爆速)の時だけ演出を完全にカット
+            // オートがOFFなら、爆速設定でもアニメ演出は表示される
+            if (isAuto && speed >= 5) {
+                continue; 
+            }
+
+            var animation = $dataAnimations[data.animationId];
+            var mirror = data.mirror;
+            var delay = animation.position === 3 ? 0 : data.delay;
+            this.startAnimation(animation, mirror, delay);
+        }
+    };
+
 })();
