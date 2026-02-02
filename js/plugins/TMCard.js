@@ -238,6 +238,7 @@
  * @requiredAssets img/pictures/c_back_1
  * @requiredAssets img/pictures/c_back_2
  * @requiredAssets img/pictures/c_back_3
+ * @requiredAssets img/pictures/c_back_4
  * @requiredAssets img/pictures/c_back_i
  * @requiredAssets img/pictures/c_back_ko
  * @requiredAssets img/pictures/c_cursor
@@ -250,6 +251,15 @@
  * @requiredAssets img/pictures/c_frame_6
  * @requiredAssets img/pictures/c_frame_7
  * @requiredAssets img/pictures/c_frame_i
+ * @requiredAssets img/pictures/p_frame_0
+ * @requiredAssets img/pictures/p_frame_1
+ * @requiredAssets img/pictures/p_frame_2
+ * @requiredAssets img/pictures/p_frame_3
+ * @requiredAssets img/pictures/p_frame_4
+ * @requiredAssets img/pictures/p_frame_5
+ * @requiredAssets img/pictures/p_frame_6
+ * @requiredAssets img/pictures/p_frame_7
+ * @requiredAssets img/pictures/p_frame_i
  * @requiredAssets img/pictures/c_rare_0
  * @requiredAssets img/pictures/c_rare_1
  * @requiredAssets img/pictures/c_rare_2
