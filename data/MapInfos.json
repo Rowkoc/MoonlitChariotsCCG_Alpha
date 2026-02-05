@@ -32,6 +32,6 @@ null,
 {"id":30,"expanded":false,"name":"ムチカアイランド","order":7,"parentId":0,"scrollX":811,"scrollY":460.5,"note":"","params":[],"damage":{"critical":"","elementId":"","formula":"","type":"","variance":""}},
 {"id":31,"expanded":1,"name":"兎紳士の家","order":33,"parentId":0,"scrollX":540.6666666666666,"scrollY":323,"params":[],"damage":{"critical":"","elementId":"","formula":"","type":"","variance":""},"note":""},
 {"id":32,"expanded":0,"name":"兎紳士の家（内部）","order":34,"parentId":31,"scrollX":819,"scrollY":455.5,"params":[],"damage":{"critical":"","elementId":"","formula":"","type":"","variance":""},"note":""},
-{"id":33,"expanded":0,"name":"ルームマッチロビー","order":11,"parentId":4,"scrollX":540.6666666666666,"scrollY":419,"params":[],"damage":{"critical":"","elementId":"","formula":"","type":"","variance":""},"note":""},
+{"id":33,"expanded":0,"name":"ルームマッチロビー","order":11,"parentId":4,"scrollX":819,"scrollY":451.5,"params":[],"damage":{"critical":"","elementId":"","formula":"","type":"","variance":""},"note":""},
 {"id":34,"expanded":0,"name":"ルムマロビーバックアップ","order":12,"parentId":4,"scrollX":819,"scrollY":451.5,"params":[],"damage":{"critical":"","elementId":"","formula":"","type":"","variance":""},"note":""}
 ]
