@@ -1513,14 +1513,15 @@ TMPlugin.Card.Layouts = {
 			var tmp = Math.ceil(user.hp*param);
 			user.gainAtk(tmp);
 			user.setPow(tmp);
-			animTargetInvert = true; //Row追記：アニメ表示位置を反転
-			message = TMPlugin.Card.ParamNames[4] + (param < 0 ? ' - ' : ' + ') + Math.abs(param);
+			//animTargetInvert = true; //Row追記：アニメ表示位置を反転
+			message = TMPlugin.Card.ParamNames[4] + (tmp < 0 ? ' - ' : ' + ') + Math.abs(tmp);
 			break;
 		case 37:	 // 自分の攻撃力をHPの値にする
-			user.gainAtk(user.hp-user.atk);
+			var tmp = user.hp-user.atk;
+			user.gainAtk(tmp);
 			user.setPow(user.atk);
-			animTargetInvert = true; //Row追記：アニメ表示位置を反転
-			message = TMPlugin.Card.ParamNames[4] + ' が ' + param + ' になった';
+			//animTargetInvert = true; //Row追記：アニメ表示位置を反転
+			message = TMPlugin.Card.ParamNames[4] + ' が ' + user.atk + ' になった';
 			break;
 		case 38:	 // 相手のHPをx倍のダメージ。
 			var tmp = Math.ceil(target.hp*param);
