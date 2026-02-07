@@ -119,7 +119,7 @@
         this.contents.drawText("《"+item.name+"》", px, currentY, pWidth - 36, 32, 'left');
         
         // 2. レアリティ
-        var rarity = Number(item.meta.cardRarity || 0);
+        var rarity = Number(item.meta.cardRare || 0);
         this.contents.fontSize = baseFontSize - 4;
         var rareName = TMPlugin.Card.RareNames[rarity];
         
@@ -281,7 +281,8 @@
             
             // ラベル
             this.contents.fontSize = 12;
-            this.changeTextColor(this.systemColor());
+            //this.changeTextColor(this.systemColor());
+            this.changeTextColor(this.textColor(17));
             this.contents.drawText(pLabel, px, currentY, pWidth-2, 32, 'right');
             
             currentY += lineH + 2;

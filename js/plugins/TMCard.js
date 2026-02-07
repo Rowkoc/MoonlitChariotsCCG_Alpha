@@ -530,6 +530,7 @@ TMPlugin.Card.Layouts = {
         typeIcon:  { x: 12, y: 10,  w: 24, h: 24, visible: true },
         name:      { x: 40, y: 11,  w: 152, h: 24, visible: true },
         faction:   { x: 34, y: 31,  w: 152, h: 24, visible: true },
+        elementIcon:  { x: 8,  y: 34,  w: 24, h: 24, visible: false },
         
         hp:        { x: 25, y: 188, w: 48,  h: 32, visible: true },
         atk:       { x: 85, y: 188, w: 48,  h: 32, visible: true },
@@ -551,18 +552,19 @@ TMPlugin.Card.Layouts = {
         drawFrame: true,
         
         // 例: 名前を少し右にずらす
-        typeIcon:  { x: 8,  y: 10,  w: 24, h: 24, visible: true },
-        name:      { x: 40, y: 10,  w: 148, h: 24, visible: true }, 
-        faction:   { x: 34, y: 31,  w: 152, h: 24, visible: true },
+        typeIcon:  { x: 10,  y: 10,  w: 18, h: 18, visible: true },
+        elementIcon:  { x: 8,  y: 34,  w: 24, h: 24, visible: false },
+        name:      { x: 39, y: 10,  w: 148, h: 18, visible: true }, 
+        faction:   { x: 32, y: 30,  w: 152, h: 18, visible: true },
         
-        hp:        { x: 22, y: 185, w: 48,  h: 32, visible: true },
-        atk:       { x: 83, y: 185, w: 48,  h: 32, visible: true },
-        spd:       { x: 148,y: 185, w: 48,  h: 32, visible: true },
+        hp:        { x: 25, y: 188, w: 48,  h: 32, visible: true },
+        atk:       { x: 85, y: 188, w: 48,  h: 32, visible: true },
+        spd:       { x: 150,y: 188, w: 48,  h: 32, visible: true },
         
         unitSkillIcon: { x: 8,  y: 226, w: 24, h: 24, visible: true },
-        unitSkillText: { x: 32, y: 226, w: 152, h: 24, visible: true },
+        unitSkillText: { x: 36, y: 226, w: 152, h: 24, visible: true },
         partySkillIcon:{ x: 8,  y: 254, w: 24, h: 24, visible: true },
-        partySkillText:{ x: 32, y: 254, w: 152, h: 24, visible: true }
+        partySkillText:{ x: 36, y: 254, w: 152, h: 24, visible: true }
     },
 
     // ■ フルアート (枠なし、テキスト最小限)
@@ -572,12 +574,14 @@ TMPlugin.Card.Layouts = {
         
         // 名前を下に配置、ステータス非表示などの例
         typeIcon:  { x: 8,  y: 10,  w: 24, h: 24, visible: true },
+        elementIcon:  { x: 8,  y: 34,  w: 24, h: 24, visible: true },
         name:      { x: 10, y: 250, w: 172, h: 24, visible: true }, // 下部に移動
         faction:   { visible: false }, // 非表示
         
-        hp:        { visible: false },
-        atk:       { visible: false },
-        spd:       { visible: false },
+        
+        hp:        { x: 25, y: 188, w: 48,  h: 32, visible: false },
+        atk:       { x: 85, y: 188, w: 48,  h: 32, visible: false },
+        spd:       { x: 150,y: 188, w: 48,  h: 32, visible: false },
         
         unitSkillIcon: { visible: false },
         unitSkillText: { visible: false },
@@ -2774,6 +2778,9 @@ TMPlugin.Card.Layouts = {
             if (layout.typeIcon && layout.typeIcon.visible) {
                 this.drawIcon(TMPlugin.Card.TypeIcons[this._card.type()], layout.typeIcon.x, layout.typeIcon.y, layout.typeIcon.w, layout.typeIcon.h);
             }
+            if (layout.elementIcon && layout.elementIcon.visible) {
+                this.drawIcon(TMPlugin.Card.ElementIcons[this._card.element()], layout.elementIcon.x, layout.elementIcon.y, layout.elementIcon.w, layout.elementIcon.h);
+            }
 
             // フォント共通設定
             this.bitmap.textColor = '#ffffff';
@@ -2800,6 +2807,7 @@ TMPlugin.Card.Layouts = {
                 if (partySkill) {
                     this.drawIcon(partySkill.iconIndex, layout.partySkillIcon.x, layout.partySkillIcon.y, layout.partySkillIcon.w, layout.partySkillIcon.h);
                     this.bitmap.fontSize = 18;
+                    this.bitmap.textColor = '#ffff40';
                     this.bitmap.drawText(partySkill.name, layout.partySkillText.x, layout.partySkillText.y, layout.partySkillText.w, layout.partySkillText.h, 'left');
                 }
             }
