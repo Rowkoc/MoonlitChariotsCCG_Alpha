@@ -2807,11 +2807,11 @@ TMPlugin.Card.Layouts = {
                 if (partySkill) {
                     this.drawIcon(partySkill.iconIndex, layout.partySkillIcon.x, layout.partySkillIcon.y, layout.partySkillIcon.w, layout.partySkillIcon.h);
                     this.bitmap.fontSize = 18;
-                    this.bitmap.textColor = '#ffff40';
+                    this.bitmap.textColor = '#F0C040';
                     this.bitmap.drawText(partySkill.name, layout.partySkillText.x, layout.partySkillText.y, layout.partySkillText.w, layout.partySkillText.h, 'left');
                 }
             }
-
+			this.bitmap.textColor = '#ffffff';
             // 種族名
             if (layout.faction && layout.faction.visible) {
                 this.bitmap.fontSize = 13;

@@ -282,7 +282,7 @@
             // ラベル
             this.contents.fontSize = 12;
             //this.changeTextColor(this.systemColor());
-            this.changeTextColor(this.textColor(17));
+            this.changeTextColor(this.textColor(21));
             this.contents.drawText(pLabel, px, currentY, pWidth-2, 32, 'right');
             
             currentY += lineH + 2;
