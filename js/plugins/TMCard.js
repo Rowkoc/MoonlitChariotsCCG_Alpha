@@ -532,8 +532,8 @@ TMPlugin.Card.Layouts = {
         faction:   { x: 34, y: 31,  w: 152, h: 24, visible: true },
         elementIcon:  { x: 8,  y: 34,  w: 24, h: 24, visible: false },
         
-        hp:        { x: 25, y: 188, w: 48,  h: 32, visible: true },
-        atk:       { x: 85, y: 188, w: 48,  h: 32, visible: true },
+        hp:        { x: 26, y: 188, w: 48,  h: 32, visible: true },
+        atk:       { x: 86, y: 188, w: 48,  h: 32, visible: true },
         spd:       { x: 150,y: 188, w: 48,  h: 32, visible: true },
         
         // 属性アイコンは個別に位置調整が必要ならここに追加しますが、元コードでは固定ロジックでした
@@ -552,13 +552,13 @@ TMPlugin.Card.Layouts = {
         drawFrame: true,
         
         // 例: 名前を少し右にずらす
-        typeIcon:  { x: 10,  y: 10,  w: 18, h: 18, visible: true },
+        typeIcon:  { x: 13,  y: 10,  w: 18, h: 18, visible: true },
         elementIcon:  { x: 8,  y: 34,  w: 24, h: 24, visible: false },
-        name:      { x: 39, y: 10,  w: 148, h: 18, visible: true }, 
-        faction:   { x: 32, y: 30,  w: 152, h: 18, visible: true },
+        name:      { x: 38, y: 11,  w: 148, h: 17, visible: true }, 
+        faction:   { x: 32, y: 30,  w: 152, h: 14, visible: true },
         
-        hp:        { x: 25, y: 188, w: 48,  h: 32, visible: true },
-        atk:       { x: 85, y: 188, w: 48,  h: 32, visible: true },
+        hp:        { x: 26, y: 188, w: 48,  h: 32, visible: true },
+        atk:       { x: 86, y: 188, w: 48,  h: 32, visible: true },
         spd:       { x: 150,y: 188, w: 48,  h: 32, visible: true },
         
         unitSkillIcon: { x: 8,  y: 226, w: 24, h: 24, visible: true },
@@ -1073,7 +1073,8 @@ TMPlugin.Card.Layouts = {
     	console.log("<<<<<<<<<<<<<<<<<<<<<<ラウンド" + (this._turnCount+1)+">>>>>>>>>>>>>>>>>>>>>>>>>>>>")
 		//ここまであたり
 		if (this._turnCount === TMPlugin.Card.MaxTurn) { //ターンが最大の時。
-			this.addMessage(3, 1);
+			//this.addMessage(3, 1);
+			AudioManager.playSe({"name":"Bell1","volume":90,"pitch":100,"pan":0})
 			this.addMessage(0, '時間切れ');
 			this.addMessage(0, '');
 			
@@ -1233,9 +1234,9 @@ TMPlugin.Card.Layouts = {
 				this._enemyDeck.card().startAnimation(message.value, false, 0);
 				break;
 			case 3: //勝敗判定&ジングル
-				if (message.value === 1) {
+				if (message.value === 1) { //負けMe
 					BattleManager.playDefeatMe();
-				} else if (message.value === 2) {
+				} else if (message.value === 2) { //勝ちMe
 					BattleManager.playVictoryMe();
 				}
 				BattleManager.replayBgmAndBgs();
@@ -2712,6 +2713,13 @@ TMPlugin.Card.Layouts = {
                         this._backBitmap = ImageManager.loadPicture('c_back_i');
                         // アイテムカードもスタイル適用したい場合はここで分岐させてください
                         this._frameBitmap = ImageManager.loadPicture('c_frame_i'); 
+                        
+                        if (layout.drawFrame) {
+                            var prefix = layout.framePrefix || 'c_frame_';
+                            this._frameBitmap = ImageManager.loadPicture(prefix + 'i');
+                        } else {
+                            this._frameBitmap = null; // 枠なし
+                        }
                     } else {
                         // 通常カード
                         //this._backBitmap = ImageManager.loadPicture('c_back_' + this._card.type());
