@@ -1277,6 +1277,7 @@ TMPlugin.Card.Layouts = {
 		var skill = user.skill(index);
 		if (!skill) return;
 		
+		
 		console.log("Skill:"+ skill.name+", 発動:"+this.meetsConditions(skill, user, index, target, active)); //スキル名表示
 		if (!this.meetsConditions(skill, user, index, target, active)) return; //発動条件を満たしているか
 		
@@ -1297,11 +1298,44 @@ TMPlugin.Card.Layouts = {
 		} else {
 			userCardName = user.card().name();
 		}
+		
+		
 		console.log("user:"+userCardName+", "+"Skill:"+ skill.name); //使用者とスキル名表示
 		
 		var targetCardName = target.card().name();
 		var animTargetInvert = false; //Row追記：アニメーション再生対象を反転するか？
 		var message = null;
+		
+		
+		//発動メッセージ
+		// useSkill 内のメッセージ分岐の例
+		var skillTypeMsg = "";
+		if (index < user.size()) {
+		    // インデックスがサイズ未満のとき
+		    if (index === user.lose) {
+		        // ★現在のカードと同じ番号なら「スキル2（固有）」扱い
+		        skillTypeMsg = "(" + TMPlugin.Card.ParamNames[7] + "2) "; 
+		        this.addMessage(0, userCardName + ' の ' + skill.name + ' 発動!!');
+		    } else {
+		        // それ以外（死んでいるカード）なら「継承」
+		        skillTypeMsg = "(継承) ";
+		        this.addMessage(0, userCardName + ' の ' +skillTypeMsg + skill.name + ' 発動!!');
+		    }
+		} else if (index === user.size()) {
+		    // デッキサイズと同じなら通常の固有スキル
+		    skillTypeMsg = "(" + TMPlugin.Card.ParamNames[7] + ") ";
+		    this.addMessage(0, userCardName + ' の ' + skill.name + ' 発動!!');
+		} else {
+		    // それ以上ならアイテム
+		    skillTypeMsg = "(ITEM) ";
+		    this.addMessage(0, userCardName + ' の ' + skill.name + ' 発動!!');
+		}
+		
+		
+		
+		console.log(userCardName + ' の ' + skill.name + ' 発動!!')
+		
+		
 		switch (effect[0]) {
 		case 1:	 // 相手に与えるダメージ＋○○
 			this._damage = Math.max(this._damage + param, 0);
@@ -1429,11 +1463,15 @@ TMPlugin.Card.Layouts = {
 			break;
 		case 20:	// 自分の継承スキルを相手と同じにする
 			user.changeSkill(index, target.skill(target.lose).id);
-			message = '相手の' + TMPlugin.Card.ParamNames[7] + 'をコピー';
+			message = '相手の' + TMPlugin.Card.ParamNames[8] + 'をコピー';
 			break;
-		case 21:	// 相手の継承スキルを奪う
-			user.changeSkill(index, target.skill(target.lose).id);
-			target.changeSkill(target.lose, 0);
+		case 21:	// 相手の継承スキルを奪う(一時的に固有に）
+			//user.changeSkill(index, target.skill(target.lose).id);
+			//target.changeSkill(target.lose, 0);
+			
+			user.changeSkill(index, target.skill(target.size()).id);
+			target.changeSkill(target.size(), 3);
+			console.log('奪取発動, user.skill(index)='+user.skill(index).id+", target="+target.skill(target.size()).id);
 			message = '相手の' + TMPlugin.Card.ParamNames[7] + 'を奪った';
 			break;
 		case 22:	// 相手の継承スキルを○○にすりかえる
@@ -1675,7 +1713,94 @@ TMPlugin.Card.Layouts = {
             animTargetInvert = true;
             message = 'BP差(' + bpDiff + ')×' + param + ' の威力! ' + dmg + ' ダメージ';
             break;
-		
+		case 53: // 自分の「次」のカードの HP + ○○
+            var nextIndex = user.lose + 1;
+            if (nextIndex < user.size()) {
+                user.card(nextIndex).addBonus(param, 0, 0);
+                message = '次ユニットの HP' + (param < 0 ? ' - ' : ' + ') + Math.abs(param);
+            }
+        	break;
+        case 54: // 自分の控え全員の HP + ○○
+            for (var i = user.lose + 1; i < user.size(); i++) {
+                user.card(i).addBonus(param, 0, 0);
+            }
+            message = '控えカードの HP' + (param < 0 ? ' - ' : ' + ') + Math.abs(param);
+        	break;
+        case 55: // 自分の全ての HP + ○○ 
+            user.gainHp(param); // 現在のカードに適用
+            for (var i = user.lose + 1; i < user.size(); i++) {
+                user.card(i).addBonus(param, 0, 0);
+            }
+            
+            message = '味方全体の HP' + (param < 0 ? ' - ' : ' + ') + Math.abs(param);
+        	break;
+        case 56: // 相手の「次」のカードの HP + ○○
+            var nextIndex = target.lose + 1;
+            if (nextIndex < target.size()) {
+                target.card(nextIndex).addBonus(param, 0, 0);
+                message = '相手の次カードの ' + TMPlugin.Card.ParamNames[3] + (param < 0 ? ' - ' : ' + ') + Math.abs(param);
+            } else {
+                message = '相手の次カードがありません';
+            }
+            break;
+        case 57: // 相手の控え全員の HP + ○○ (ダメージならマイナス値を設定)
+            for (var i = target.lose + 1; i < target.size(); i++) {
+                target.card(i).addBonus(param, 0, 0);
+            }
+            message = targetCardName + ' の控え ' + TMPlugin.Card.ParamNames[3] + (param < 0 ? ' - ' : ' + ') + Math.abs(param);
+            break;
+        case 58: // 相手の全ての HP + ○○
+            target.gainHp(param);
+            target.setPow(param);
+            animTargetInvert = true; // アニメーション反転
+            for (var i = target.lose + 1; i < target.size(); i++) {
+                target.card(i).addBonus(param, 0, 0);
+            }
+            message = '相手全体の ' + TMPlugin.Card.ParamNames[3] + (param < 0 ? ' - ' : ' + ') + Math.abs(param);
+            break;
+        case 59: // 自分の「次」のカードの 攻撃力 + ○○
+            var nextIndex = user.lose + 1;
+            if (nextIndex < user.size()) {
+                user.card(nextIndex).addBonus(0, param, 0);
+                message = '次カードの ' + TMPlugin.Card.ParamNames[4] + (param < 0 ? ' - ' : ' + ') + Math.abs(param);
+            }
+            break;
+        case 60: // 自分の控え全員の 攻撃力 + ○○
+            for (var i = user.lose + 1; i < user.size(); i++) {
+                user.card(i).addBonus(0, param, 0);
+            }
+            message = '控えカードの ' + TMPlugin.Card.ParamNames[4] + (param < 0 ? ' - ' : ' + ') + Math.abs(param);
+            break;
+        case 61: // 自分の全ての 攻撃力 + ○○
+            user.gainAtk(param); // 現在のカードに適用
+            user.setPow(user.atk);
+            for (var i = user.lose + 1; i < user.size(); i++) { // 控えに適用
+                user.card(i).addBonus(0, param, 0);
+            }
+            message = '味方全体の ' + TMPlugin.Card.ParamNames[4] + (param < 0 ? ' - ' : ' + ') + Math.abs(param);
+            break;
+        case 62: // 相手の「次」のカードの 攻撃力 + ○○
+            var nextIndex = target.lose + 1;
+            if (nextIndex < target.size()) {
+                target.card(nextIndex).addBonus(0, param, 0);
+                message = '相手の次カードの ' + TMPlugin.Card.ParamNames[4] + (param < 0 ? ' - ' : ' + ') + Math.abs(param);
+            }
+            break;
+        case 63: // 相手の控え全員の 攻撃力 + ○○
+            for (var i = target.lose + 1; i < target.size(); i++) {
+                target.card(i).addBonus(0, param, 0);
+            }
+            message = targetCardName + ' の控え ' + TMPlugin.Card.ParamNames[4] + (param < 0 ? ' - ' : ' + ') + Math.abs(param);
+            break;
+        case 64: // 相手の全ての 攻撃力 + ○○
+            target.gainAtk(param);
+            target.setPow(target.atk);
+            animTargetInvert = true;
+            for (var i = target.lose + 1; i < target.size(); i++) {
+                target.card(i).addBonus(0, param, 0);
+            }
+            message = '相手全体の ' + TMPlugin.Card.ParamNames[4] + (param < 0 ? ' - ' : ' + ') + Math.abs(param);
+            break;
 		//========ここより上に追記していく==========-
 		}
 		
@@ -1685,9 +1810,11 @@ TMPlugin.Card.Layouts = {
     	}else{
     		this.addMessage(isPlayer ? 1 : 2, skill.animationId); //1ならプレイヤー、2なら相手にアニメを再生。
     	}	
-		this.addMessage(0, userCardName + ' の ' + skill.name + ' 発動!!');
-		this.addMessage(0, message);
-		console.log(userCardName + ' の ' + skill.name + ' 発動!!')
+    	
+    	
+		
+		this.addMessage(0, message); //スキル効果の方のテキスト
+		
 		user.useSkill(index);
 	};
 
@@ -1831,22 +1958,19 @@ TMPlugin.Card.Layouts = {
 				case 36: //自分が特定種族を含む Row追記
 					var tmp =rules[i].split(','); //文字列用に取得しなおし。
 					var paramF = tmp[1];
-					const factions = user.cardFaction();
-					console.log("factions="+factions+", param="+paramF+", check:"+factions);
-  					if (!factions.includes(paramF)) return false;
+					var cfactions = user.cardFaction();
+					console.log("cfactions="+cfactions+", param="+paramF+", check:"+cfactions);
+  					if (!cfactions.includes(paramF)) return false;
   					
 					break;
-				case 37: //特定種族が一定数以上 Row追記
+				case 37: //相手が特定種族を含む Row追記
 					var tmp =rules[i].split(','); //文字列用に取得しなおし。
-					var factionName = tmp[1];
-  					var countRequired = rule[2] || 1;
-  					var count = 0;
+					var paramF = tmp[1];
+					var cfactions = target.cardFaction();
+					console.log("cfactions="+cfactions+", param="+paramF+", check:"+cfactions);
+  					if (!cfactions.includes(paramF)) return false;
   					
-  					for (var i = 0; i < user.size(); i++) {
-    					if (user.card(i).faction().includes(factionName)) count++;
-  					}
-  					if (count < countRequired) return false;
-  					break;
+					break;
   				case 38:	 // 指定ターン以降 Row追記
 					if (user.turnCount < param) return false;
 					break;
@@ -1892,6 +2016,35 @@ TMPlugin.Card.Layouts = {
 					// 最後までチェックして共通候補が残っていればOK（break）、残っていなければNG（return false）
 					// ※ループ内のチェックで0の場合は弾いているため、ここに来た時点でcommonFactionsは1以上あるはずですが念のため
 					if (commonFactions.length === 0) return false;
+					break;
+				case 48: //特定種族が一定数以上 Row追記
+					var tmp =rules[i].split(','); //文字列用に取得しなおし。
+					var factionName = tmp[1];
+  					var countRequired = rule[2] || 1;
+  					var count = 0;
+  					
+  					for (var i = 0; i < user.size(); i++) {
+    					if (user.card(i).faction().includes(factionName)) count++;
+  					}
+  					if (count < countRequired) return false;
+  					break;
+  				case 49:	// 自分のspdが○○以上
+					if (user.spd < param) return false;
+					break;
+				case 50:	// 自分のspdが○○以下
+					if (user.spd > param) return false;
+					break;
+				case 51:	// 自分のspdが○○になった
+					if (user.spd !== param) return false;
+					break;
+				case 52:	// 相手のspdが○○以上
+					if (target.spd < param) return false;
+					break;
+				case 53:	// 相手のspdが○○以下
+					if (target.spd > param) return false;
+					break;
+				case 54:	// 相手のspdが○○になった
+					if (target.spd !== param) return false;
 					break;
 				} //Switch 閉じ
 			} //for閉じ
@@ -2157,7 +2310,9 @@ TMPlugin.Card.Layouts = {
 	// スキルを変更する
 	Game_Deck.prototype.changeSkill = function(index, skillId) {
 		this._skills[index] = skillId;
+		
 	};
+	
 
 	// スキル使用による後処理
 	Game_Deck.prototype.useSkill = function(index) {
@@ -2481,7 +2636,9 @@ TMPlugin.Card.Layouts = {
         }
         return false;
     };
+    
 
+	//ここまで    
 
 	Game_Card.prototype.id = function() {
 		return this._cardId;
@@ -4837,5 +4994,7 @@ Spriteset_CardBattle.prototype.autotileType = function(z) {
             this.startAnimation(animation, mirror, delay);
         }
     };
+
+
 
 })();
