@@ -1139,17 +1139,22 @@ TMPlugin.Card.Layouts = {
 		// 使用者、対象、 true/false を参照。；
 		var deckSize = attacker.size();
 		
-		
-		
 		//継承スキルを使う。死んでるやつのインデックスを大きい方から順番に。
 		//最初に死んでるやつが見つかったらそこでブレークする。
 		//console.log("継承スキル？");
 		//console.log("attacker.lose:"+ attacker.lose);
 		//for (var i = attacker.lose; i > 0; i--) { //死亡数が1以上の時さかのぼる。
+		
 		for (var i = 0; attacker.lose > i ; i++) { //死亡数が0以上の時順次上がっていく。
 			console.log("attacker.lose:"+ attacker.lose + ", i ="+i );
 			//var tmpNum = i-1; //先に足しちゃった分引いてる。 
 			var tmpNum = i;
+			
+			// ★変更点1: <skill2>を持っているカードは継承しない（スキップ）
+            if (attacker.card(i).isSkill2()) {
+                continue; 
+            }
+			
 			this.useSkill(attacker, tmpNum, target, active); //i から1少ないインデックスを参照。
 			//if (attacker.isStateAffected(1)) break; //ステートが戦闘不能だとbreak
 		}
@@ -1157,6 +1162,12 @@ TMPlugin.Card.Layouts = {
 		//固有スキルを使う。
 		//console.log("固有スキル？");
 		this.useSkill(attacker, deckSize, target, active);
+		
+		// 3. ★変更点2: 自身が <skill2> を持っている場合、追加で自分のパーティスキルを発動
+        //    自身のパーティスキルは attacker.lose の位置に入っています。
+        if (attacker.card().isSkill2()) {
+            this.useSkill(attacker, attacker.lose, target, active);
+        }
 		
 		if (attacker.isItemCardReady()) {
 			//console.log("アイテム発動");
@@ -1857,6 +1868,31 @@ TMPlugin.Card.Layouts = {
 					if (target.bp - user.bp > param) return false;
 				case 46:	//SPDが相手より○○以上
 					if (target.spd - user.spd < param) return false;
+				case 47: // 自分のデッキの全カードに共通する種族が含まれているか
+					// デッキが空なら条件不成立
+					if (user.size() === 0) return false;
+
+					// 1枚目のカードの種族リストを「共通候補」の初期値とする
+					var commonFactions = user.card(0).faction();
+					console.log("1枚目commonFactions="+commonFactions);
+
+					// 2枚目以降のカードをループし、共通候補を絞り込んでいく
+					for (var k = 1; k < user.size(); k++) {
+						var currentFactions = user.card(k).faction();
+						
+						// 現在の「共通候補」の中から、比較対象のカードにも含まれているものだけを残す (積集合)
+						commonFactions = commonFactions.filter(function(f) {
+							return currentFactions.includes(f);
+						});
+
+						// 途中で共通候補がなくなったら、その時点で条件不成立
+						if (commonFactions.length === 0) return false;
+					}
+					console.log("確認済みcommonFactions="+commonFactions);
+					// 最後までチェックして共通候補が残っていればOK（break）、残っていなければNG（return false）
+					// ※ループ内のチェックで0の場合は弾いているため、ここに来た時点でcommonFactionsは1以上あるはずですが念のため
+					if (commonFactions.length === 0) return false;
+					break;
 				} //Switch 閉じ
 			} //for閉じ
 		} //rules 閉じ
@@ -2409,6 +2445,11 @@ TMPlugin.Card.Layouts = {
 	Game_Card.prototype.knockoutName = function() {
 		return this._item.meta.knockoutImage || 'defeat_3';
 	};
+	
+	// <skill2> タグを持っているか判定
+    Game_Card.prototype.isSkill2 = function() {
+        return this._item && this._item.meta.skill2;
+    };
 
 	//カードのボーナス値の追加
 	// ■ 初期化処理にボーナス値用の変数を追加
@@ -2816,6 +2857,14 @@ TMPlugin.Card.Layouts = {
                     this.drawIcon(partySkill.iconIndex, layout.partySkillIcon.x, layout.partySkillIcon.y, layout.partySkillIcon.w, layout.partySkillIcon.h);
                     this.bitmap.fontSize = 18;
                     this.bitmap.textColor = '#F0C040';
+                    // <skill2> タグを持っているか判定 (関数ではなく直接プロパティを参照)
+					var isSkill2 = this._card._item && this._card._item.meta.skill2;
+					if (!isSkill2) {
+					    this.bitmap.textColor = '#F0C040'; // 継承スキル用の色
+					} else {
+					    this.bitmap.textColor = '#ffffff'; // 通常の色（固有スキルと同じ色に戻す）
+					}
+                    
                     this.bitmap.drawText(partySkill.name, layout.partySkillText.x, layout.partySkillText.y, layout.partySkillText.w, layout.partySkillText.h, 'left');
                 }
             }
@@ -3098,6 +3147,7 @@ TMPlugin.Card.Layouts = {
 	Sprite_TurnCursor.prototype.update = function() {
 		this.rotation += 0.02;
 		this._scaleCount += 1;
+		this.opacity = 200;
 		if (this._scaleCount >= 240) this._scaleCount = 0;
 		this.scale.x = Math.sin(Math.PI * this._scaleCount / 120) * 0.2 + 1.0;
 		this.scale.y = this.scale.x;
@@ -3220,9 +3270,11 @@ TMPlugin.Card.Layouts = {
         // 見出し（前回と同じ）
         var headerY = conf.textY - 16;
         this._bpHeaderSprite = new Sprite(new Bitmap(Graphics.width, 48));
-        this._bpHeaderSprite.bitmap.fontSize = 20;
+        this._bpHeaderSprite.bitmap.fontSize = 22;
         this._bpHeaderSprite.bitmap.outlineWidth = 3;
-        this._bpHeaderSprite.bitmap.drawText("BATTLE STATUS", 0, 0, Graphics.width, 32, 'center');
+        this._bpHeaderSprite.bitmap.textColor = '#ffff00';
+        this._bpHeaderSprite.bitmap.drawText("CHAOS FRAME", 0, 0, Graphics.width, 32, 'center');
+        this._bpHeaderSprite.bitmap.textColor = '#ffffff';
         this._bpHeaderSprite.y = headerY;
         this._bpGaugeSprite.addChild(this._bpHeaderSprite);
     };

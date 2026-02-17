@@ -266,12 +266,6 @@
         if (pSkillId > 0 && !ignoreSkillIds.contains(pSkillId)) {
             var pSkill = $dataSkills[pSkillId];
             
-			if (typeId == 4){
-	            var pLabel = TMPlugin.Card.Parameters['partySkillText'] || 'スキル2';
-	        }else{
-	        	var pLabel = TMPlugin.Card.Parameters['partySkillText'] || '継承スキル';
-	        }	
-            
             this.contents.fontSize = baseFontSize;
             this.changeTextColor(this.normalColor());
             if (pSkill.iconIndex > 0) this.drawIcon(pSkill.iconIndex, px, currentY);
@@ -280,9 +274,21 @@
             this.contents.drawText(pSkill.name, px + (pSkill.iconIndex > 0 ? 36 : 0), currentY, pWidth, 32, 'left');
             
             // ラベル
+            if (typeId == 4){
+	            var pLabel = TMPlugin.Card.Parameters['partySkillText'] || 'スキル2';
+	        }else{
+	        	var isSkill2 = item.meta.skill2;
+	        	if(isSkill2){
+	        		this.changeTextColor(this.systemColor()); 
+	        		var pLabel = '固有スキル';
+	        	}else{
+	        		this.changeTextColor(this.textColor(21));
+		        	var pLabel = TMPlugin.Card.Parameters['partySkillText'] || '継承スキル';
+		        }
+	        }	
             this.contents.fontSize = 12;
             //this.changeTextColor(this.systemColor());
-            this.changeTextColor(this.textColor(21));
+            
             this.contents.drawText(pLabel, px, currentY, pWidth-2, 32, 'right');
             
             currentY += lineH + 2;
