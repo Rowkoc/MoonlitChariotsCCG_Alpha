@@ -1085,11 +1085,11 @@ TMPlugin.Card.Layouts = {
 
             if (pBp > eBp) {
                 this.addMessage(3, 2); // 勝ちジングル
-                this.addMessage(0, '戦況値により ' + this._playerDeck.userName() + ' の勝利!');
+                this.addMessage(0, this._playerDeck.userName() + ' のカオスフレーム勝利!');
                 $gameVariables.setValue(TMPlugin.Card.VNResult, 2);
             } else if (eBp > pBp) {
                 this.addMessage(3, 1); // 負けジングル
-                this.addMessage(0, '戦況値により 敗北...');
+                this.addMessage(0, 'カオスフレームにより 敗北...');
                 $gameVariables.setValue(TMPlugin.Card.VNResult, 1);
             } else {
                 this.addMessage(3, 1);
